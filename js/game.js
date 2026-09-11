@@ -1,22 +1,20 @@
 /**
- * game.js - Motor de juego mejorado para "El Gran Salto de la Pulguita"
- * Físicas suaves y cadenciosas, 5 niveles con dificultad progresiva, obstáculos dinámicos,
- * sistema de 3 vidas/corazones y trivias de vida entre niveles.
+ * game.js - Motor de juego optimizado para móviles (Zero Delay) con selector de 4 personajes 3D
  */
 
 class IsaJumpGame {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
-        this.ctx = this.canvas.getContext('2d');
+        this.ctx = this.canvas.getContext('2d', { alpha: false }); // Optimización de renderizado
         
         // Dimensiones lógicas internas
         this.logicalWidth = 400;
         this.logicalHeight = 650;
         this.scale = 1;
-        this.dpr = window.devicePixelRatio || 1;
+        this.dpr = Math.min(window.devicePixelRatio || 1, 2); // Limitar a 2x para evitar lag en pantallas 3x/4x
 
         // Estado del juego
-        this.state = 'START'; // START, PLAYING, QUIZ, LEVEL_TRANSITION, VICTORY, GAMEOVER
+        this.state = 'START';
         this.currentLevel = 1;
         this.maxLevels = 5;
         this.score = 0;
@@ -25,22 +23,26 @@ class IsaJumpGame {
         this.maxAltitude = 0;
         this.levelBaseAltitude = 0;
         this.cameraY = 0;
+
+        // Personaje seleccionado
+        this.selectedCharacter = 'elmacho';
+        this.characterImages = {};
+        this.loadCharacterImages();
         
-        // Jugador (Isa) con físicas suaves y flotantes
+        // Jugador con físicas ultra fluidas y control instantáneo
         this.player = {
             x: 200,
             y: 500,
             vx: 0,
             vy: 0,
-            width: 38,
-            height: 38,
-            jumpForce: -10.2, // Salto más suave y controlado
-            gravity: 0.25,    // Gravedad suave para parábolas elegantes
-            maxVx: 5.6,
+            width: 44,
+            height: 44,
+            jumpForce: -10.5,
+            gravity: 0.26,
+            maxVx: 6.2,
             facingRight: true,
             squash: 1,
             stretch: 1,
-            wingFlap: 0,
             blinkTimer: 0,
             shield: false,
             shieldTimer: 0,
@@ -52,16 +54,16 @@ class IsaJumpGame {
         // Entidades y obstáculos
         this.platforms = [];
         this.items = [];
-        this.obstacles = []; // Nubes de tormenta, rayos, meteoros
-        this.windZones = []; // Corrientes de aire lateral
+        this.obstacles = [];
+        this.windZones = [];
         this.highestPlatformY = 600;
 
-        // Controles táctiles y teclado
+        // Controles táctiles directos de cero retardo
         this.input = {
             left: false,
             right: false,
-            dragActive: false,
-            touchTargetX: null
+            touchActive: false,
+            touchX: null
         };
 
         // Callbacks de interfaz
@@ -79,7 +81,17 @@ class IsaJumpGame {
         this.bindEvents();
     }
 
-    // Ajuste de resolución para pantallas móviles
+    // Cargar imágenes 3D de los personajes
+    loadCharacterImages() {
+        const characters = ['elmacho', 'chavito', 'niko', 'valolo'];
+        characters.forEach(id => {
+            const img = new Image();
+            img.src = `assets/characters/${id}.jpg`;
+            this.characterImages[id] = img;
+        });
+    }
+
+    // Ajuste dinámico de resolución sin sobrecargar la GPU
     resize() {
         const container = document.getElementById('gameContainer');
         const displayWidth = container.clientWidth;
@@ -95,6 +107,7 @@ class IsaJumpGame {
         this.ctx.scale(this.dpr * this.scale, this.dpr * this.scale);
     }
 
+    // Manejo de eventos de entrada ultra rápido (Zero Delay)
     bindEvents() {
         window.addEventListener('resize', () => this.resize());
 
@@ -109,57 +122,61 @@ class IsaJumpGame {
             if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') this.input.right = false;
         });
 
-        // Controles táctiles mobile
+        // Controles táctiles directos con respuesta instantánea
         const canvas = this.canvas;
-        const handleTouch = (clientX) => {
+
+        const updateTouchPosition = (clientX) => {
             const rect = canvas.getBoundingClientRect();
             const touchLogicalX = (clientX - rect.left) / this.scale;
-            this.input.touchTargetX = touchLogicalX;
-            this.input.dragActive = true;
+            this.input.touchX = touchLogicalX;
+            this.input.touchActive = true;
 
-            if (touchLogicalX < this.player.x - 10) {
-                this.input.left = true;
-                this.input.right = false;
-            } else if (touchLogicalX > this.player.x + 10) {
-                this.input.right = true;
-                this.input.left = false;
+            // Dirección y fuerza inmediata
+            const diffX = touchLogicalX - this.player.x;
+            if (Math.abs(diffX) > 8) {
+                this.input.left = diffX < 0;
+                this.input.right = diffX > 0;
             } else {
                 this.input.left = false;
                 this.input.right = false;
             }
         };
 
+        const stopTouch = () => {
+            this.input.touchActive = false;
+            this.input.touchX = null;
+            this.input.left = false;
+            this.input.right = false;
+        };
+
         canvas.addEventListener('touchstart', (e) => {
             e.preventDefault();
-            if (e.touches.length > 0) handleTouch(e.touches[0].clientX);
+            if (e.touches.length > 0) updateTouchPosition(e.touches[0].clientX);
         }, { passive: false });
 
         canvas.addEventListener('touchmove', (e) => {
             e.preventDefault();
-            if (e.touches.length > 0) handleTouch(e.touches[0].clientX);
+            if (e.touches.length > 0) updateTouchPosition(e.touches[0].clientX);
         }, { passive: false });
 
-        canvas.addEventListener('touchend', () => {
-            this.input.left = false;
-            this.input.right = false;
-            this.input.dragActive = false;
-            this.input.touchTargetX = null;
-        });
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopTouch();
+        }, { passive: false });
 
-        canvas.addEventListener('mousedown', (e) => handleTouch(e.clientX));
+        canvas.addEventListener('touchcancel', stopTouch, { passive: true });
+
+        // Mouse para pruebas en PC
+        canvas.addEventListener('mousedown', (e) => updateTouchPosition(e.clientX));
         window.addEventListener('mousemove', (e) => {
-            if (this.input.dragActive) handleTouch(e.clientX);
+            if (this.input.touchActive) updateTouchPosition(e.clientX);
         });
-        window.addEventListener('mouseup', () => {
-            this.input.left = false;
-            this.input.right = false;
-            this.input.dragActive = false;
-            this.input.touchTargetX = null;
-        });
+        window.addEventListener('mouseup', stopTouch);
     }
 
-    // Iniciar el juego desde el Nivel 1 o un nivel específico
-    start(level = 1, resetScore = true) {
+    // Iniciar el juego con el personaje elegido
+    start(level = 1, resetScore = true, characterId = null) {
+        if (characterId) this.selectedCharacter = characterId;
         this.currentLevel = level;
         const levelConfig = getLevelData(this.currentLevel);
 
@@ -167,12 +184,10 @@ class IsaJumpGame {
         this.lives = 3;
         this.state = 'PLAYING';
 
-        // Altura base según el nivel
         const prevLevel = this.currentLevel > 1 ? getLevelData(this.currentLevel - 1) : null;
         this.levelBaseAltitude = prevLevel ? prevLevel.targetAltitude : 0;
         this.maxAltitude = this.levelBaseAltitude;
 
-        // Posicionar jugador y cámara
         const startY = -this.levelBaseAltitude + (this.logicalHeight - 120);
         this.player.x = this.logicalWidth / 2;
         this.player.y = startY;
@@ -184,14 +199,13 @@ class IsaJumpGame {
 
         this.cameraY = this.player.y - this.logicalHeight * 0.55;
 
-        // Generar plataformas iniciales del nivel
         this.platforms = [];
         this.items = [];
         this.obstacles = [];
         this.windZones = [];
         this.highestPlatformY = startY + 40;
 
-        // Plataforma base segura
+        // Plataforma base inicial
         this.platforms.push({
             x: this.logicalWidth / 2 - 55,
             y: startY + 20,
@@ -201,7 +215,6 @@ class IsaJumpGame {
             vx: 0
         });
 
-        // Generar primer tramo del nivel
         this.generateWorldChunk(this.cameraY - this.logicalHeight * 2);
 
         if (window.sound) {
@@ -213,7 +226,7 @@ class IsaJumpGame {
         this.triggerToast(`🌟 ${levelConfig.title}`, 'potential');
     }
 
-    // Generador procedural de plataformas y obstáculos según la dificultad del nivel
+    // Generador procedural equilibrado
     generateWorldChunk(targetY) {
         const levelConfig = getLevelData(this.currentLevel);
         const diff = levelConfig.difficulty;
@@ -224,11 +237,8 @@ class IsaJumpGame {
             currentY -= gapY;
 
             const altitude = Math.max(0, Math.floor(-currentY));
-
-            // Si llegamos a la meta del nivel, no generar más allá
             if (altitude > levelConfig.targetAltitude + 300) break;
 
-            // Selección de plataforma
             let type = 'cloud';
             const roll = Math.random();
 
@@ -260,7 +270,7 @@ class IsaJumpGame {
             };
             this.platforms.push(platform);
 
-            // Generar Obstáculos (Nubes de tormenta con rayos)
+            // Obstáculos
             if (diff.hasStorms && Math.random() < 0.22 && type === 'cloud') {
                 this.obstacles.push({
                     type: 'storm_cloud',
@@ -273,7 +283,7 @@ class IsaJumpGame {
                 });
             }
 
-            // Generar Corrientes de Viento
+            // Vientos
             if (diff.hasWinds && Math.random() < 0.15) {
                 this.windZones.push({
                     x: 0,
@@ -285,7 +295,7 @@ class IsaJumpGame {
                 });
             }
 
-            // Generar Coleccionables
+            // Coleccionables
             if (type !== 'fragile' && Math.random() < 0.45) {
                 let itemType = 'beauty';
                 const itemRoll = Math.random();
@@ -314,18 +324,17 @@ class IsaJumpGame {
         this.highestPlatformY = currentY;
     }
 
-    // Actualización de física y lógica por frame
+    // Actualización de física sin latencia
     update(dt) {
         if (this.state !== 'PLAYING') return;
 
         const levelConfig = getLevelData(this.currentLevel);
 
-        // 1. Invulnerabilidad temporal
         if (this.player.invulnerableTimer > 0) {
             this.player.invulnerableTimer -= dt;
         }
 
-        // 2. Manejo de potenciadores (Cohete y Escudo)
+        // Potenciadores
         if (this.player.rocket) {
             this.player.rocketTimer -= dt;
             this.player.vy = -14;
@@ -345,61 +354,58 @@ class IsaJumpGame {
             if (this.player.shieldTimer <= 0) this.player.shield = false;
         }
 
-        // 3. Movimiento horizontal y control en el aire
-        const moveAccel = 0.72;
-        if (this.input.left) {
+        // Movimiento horizontal directo
+        const moveAccel = 0.95; // Aceleración ágil
+        if (this.input.touchActive && this.input.touchX !== null) {
+            const diffX = this.input.touchX - this.player.x;
+            this.player.vx = Math.max(-this.player.maxVx, Math.min(this.player.maxVx, diffX * 0.24));
+            if (Math.abs(this.player.vx) > 0.5) {
+                this.player.facingRight = this.player.vx > 0;
+            }
+        } else if (this.input.left) {
             this.player.vx -= moveAccel;
             this.player.facingRight = false;
         } else if (this.input.right) {
             this.player.vx += moveAccel;
             this.player.facingRight = true;
         } else {
-            this.player.vx *= 0.86; // Fricción suave y natural
+            this.player.vx *= 0.82;
         }
 
-        // 4. Efecto de zonas de viento
+        // Efecto de zonas de viento
         this.windZones.forEach(w => {
             if (this.player.y >= w.y && this.player.y <= w.y + w.height) {
                 this.player.vx += w.direction * w.strength * 0.12;
             }
         });
 
-        // Limitar velocidad horizontal
         this.player.vx = Math.max(-this.player.maxVx, Math.min(this.player.maxVx, this.player.vx));
         this.player.x += this.player.vx;
 
-        // Wrap-around en los bordes de la pantalla
+        // Wrap-around horizontal
         if (this.player.x < -this.player.width / 2) {
             this.player.x = this.logicalWidth + this.player.width / 2;
         } else if (this.player.x > this.logicalWidth + this.player.width / 2) {
             this.player.x = -this.player.width / 2;
         }
 
-        // 5. Movimiento vertical
+        // Movimiento vertical
         this.player.y += this.player.vy;
 
-        // Partículas al saltar
         if (this.player.vy < -1.5 && window.particles) {
-            window.particles.emitTrail(this.player.x, this.player.y + 14, this.player.rocket ? '#ffd166' : '#ff9ebb');
-        }
-
-        // Animación de aleteo y parpadeo
-        this.player.wingFlap += 0.2;
-        this.player.blinkTimer += dt;
-        if (this.player.blinkTimer > 3.8) {
-            if (this.player.blinkTimer > 4.0) this.player.blinkTimer = 0;
+            window.particles.emitTrail(this.player.x, this.player.y + 16, this.player.rocket ? '#ffd166' : '#ff9ebb');
         }
 
         // Squash & stretch dinámico
         if (this.player.vy < 0) {
-            this.player.stretch = Math.min(1.22, 1 + Math.abs(this.player.vy) * 0.02);
+            this.player.stretch = Math.min(1.18, 1 + Math.abs(this.player.vy) * 0.015);
             this.player.squash = 1 / this.player.stretch;
         } else {
             this.player.stretch = 1;
             this.player.squash = 1;
         }
 
-        // 6. Actualizar plataformas móviles
+        // Actualizar plataformas móviles
         this.platforms.forEach(p => {
             if (p.type === 'moving') {
                 p.x += p.vx;
@@ -413,19 +419,18 @@ class IsaJumpGame {
             }
         });
 
-        // 7. Actualizar obstáculos (Nubes de tormenta con rayos cíclicos)
+        // Obstáculos de tormenta
         this.obstacles.forEach(obs => {
             if (obs.type === 'storm_cloud') {
                 obs.zapTimer += dt;
-                // Rayo activo cada 2.5 segundos durante 0.8 segundos
                 obs.zapActive = (obs.zapTimer % 2.5) > 1.7;
-                if (obs.zapActive && (obs.zapTimer % 2.5) < 1.75 && window.sound) {
+                if (obs.zapActive && (obs.zapTimer % 2.5) < 1.74 && window.sound) {
                     window.sound.playThunder();
                 }
             }
         });
 
-        // 8. Colisión con Plataformas (cuando cae)
+        // Colisión con plataformas
         if (this.player.vy > 0 && !this.player.rocket) {
             const playerFeetY = this.player.y + this.player.height / 2;
             const prevPlayerFeetY = playerFeetY - this.player.vy;
@@ -435,8 +440,8 @@ class IsaJumpGame {
                 if (p.isBroken) continue;
 
                 if (
-                    this.player.x + 10 > p.x &&
-                    this.player.x - 10 < p.x + p.width &&
+                    this.player.x + 12 > p.x &&
+                    this.player.x - 12 < p.x + p.width &&
                     prevPlayerFeetY <= p.y + 6 &&
                     playerFeetY >= p.y - 5
                 ) {
@@ -467,21 +472,21 @@ class IsaJumpGame {
             }
         }
 
-        // 9. Colisión con Obstáculos (Tormentas y Rayos)
+        // Colisión con rayos
         if (this.player.invulnerableTimer <= 0 && !this.player.rocket) {
             for (let obs of this.obstacles) {
                 if (obs.type === 'storm_cloud' && obs.zapActive) {
                     const dx = this.player.x - (obs.x + obs.width / 2);
                     const dy = this.player.y - (obs.y + 15);
                     if (Math.hypot(dx, dy) < 28) {
-                        this.takeDamage("⚡ ¡Cuidado con la tormenta! Mantén el enfoque, pulga.");
+                        this.takeDamage("⚡ ¡Cuidado con el rayo! Mantén la concentración.");
                         break;
                     }
                 }
             }
         }
 
-        // 10. Colisión con Coleccionables
+        // Colisión con items
         this.items.forEach(item => {
             if (item.collected) return;
 
@@ -518,14 +523,14 @@ class IsaJumpGame {
                     this.player.rocket = true;
                     this.player.rocketTimer = 2.6;
                     if (window.sound) window.sound.playRocket();
-                    this.triggerToast("🚀 ¡SÚPER COHETE! ¡Nada te frena!", 'potential');
+                    this.triggerToast("🚀 ¡SÚPER COHETE! ¡Hacia tus metas!", 'potential');
                 }
 
                 this.updateHUD();
             }
         });
 
-        // 11. Cámara y Altitud
+        // Seguimiento de cámara
         const targetScreenY = this.logicalHeight * 0.50;
         if (this.player.y < this.cameraY + targetScreenY) {
             this.cameraY = this.player.y - targetScreenY;
@@ -537,40 +542,37 @@ class IsaJumpGame {
             this.updateHUD();
         }
 
-        // 12. Comprobar si se completó el nivel actual
+        // Fin de nivel
         if (this.maxAltitude >= levelConfig.targetAltitude) {
             this.completeLevel();
             return;
         }
 
-        // Generar más mundo según asciende
         if (this.cameraY - this.logicalHeight < this.highestPlatformY) {
             this.generateWorldChunk(this.cameraY - this.logicalHeight * 2);
         }
 
-        // Limpiar entidades lejanas
+        // Limpieza de entidades
         const cleanupLimit = this.cameraY + this.logicalHeight + 150;
         this.platforms = this.platforms.filter(p => p.y < cleanupLimit);
         this.items = this.items.filter(item => item.y < cleanupLimit && !item.collected);
         this.obstacles = this.obstacles.filter(obs => obs.y < cleanupLimit);
         this.windZones = this.windZones.filter(w => w.y < cleanupLimit);
 
-        // 13. Caída al vacío (Pérdida de vida)
+        // Caída
         const fallLimit = this.cameraY + this.logicalHeight + 35;
         if (this.player.y > fallLimit) {
-            this.takeDamage("☁️ ¡Cuidado con el salto! La perseverancia es tu mayor virtud ✨");
+            this.takeDamage("☁️ ¡Un resbalón no te detiene! Sigue intentándolo con fuerza ✨");
         }
     }
 
-    // Sistema de daño y pérdida de vidas
     takeDamage(message) {
         if (this.player.shield) {
-            // El escudo absorbe el golpe
             this.player.shield = false;
             this.player.invulnerableTimer = 1.8;
             this.player.vy = this.player.jumpForce * 1.1;
             if (window.sound) window.sound.playSpring();
-            this.triggerToast("🛡️ ¡Tu escudo absorbió el golpe! ¡Sigue adelante!", 'intelligence');
+            this.triggerToast("🛡️ ¡El escudo te protegió! ¡Sigue subiendo!", 'intelligence');
             return;
         }
 
@@ -580,7 +582,6 @@ class IsaJumpGame {
         if (window.sound) window.sound.playHurt();
 
         if (this.lives > 0) {
-            // Rescate a plataforma segura con invulnerabilidad temporal
             const targetPlatform = this.platforms.find(p => p.y >= this.cameraY + 80 && p.y <= this.cameraY + this.logicalHeight - 120)
                 || { x: this.logicalWidth / 2 - 35, y: this.cameraY + 300, width: 70 };
 
@@ -594,24 +595,18 @@ class IsaJumpGame {
                 window.particles.emitCollectSparkles(this.player.x, this.player.y, 'beauty');
             }
 
-            this.triggerToast(message || "❤️ ¡Te queda fuerza! Una pulguita valiente nunca se rinde.", 'beauty');
+            this.triggerToast(message || "❤️ ¡Tienes toda la energía para continuar!", 'beauty');
         } else {
-            // Game Over de Nivel
             this.state = 'GAMEOVER';
             if (this.onGameOver) this.onGameOver(this.currentLevel);
         }
     }
 
-    // Superación de nivel
     completeLevel() {
         if (this.currentLevel >= this.maxLevels) {
-            // ¡Victoria Total del Juego!
             this.state = 'VICTORY';
-            if (window.sound) window.sound.playWinFanfare();
-            if (window.particles) window.particles.emitCelebrationConfetti(this.logicalWidth, this.logicalHeight);
             if (this.onVictoryReached) this.onVictoryReached();
         } else {
-            // Pausar y activar la trivia interactiva de este nivel
             this.state = 'QUIZ';
             const levelData = getLevelData(this.currentLevel);
             if (window.sound) window.sound.playLevelUp();
@@ -620,13 +615,11 @@ class IsaJumpGame {
         }
     }
 
-    // Avanzar al siguiente nivel tras responder la trivia
     nextLevel() {
         this.currentLevel++;
-        this.start(this.currentLevel, false);
+        this.start(this.currentLevel, false, this.selectedCharacter);
     }
 
-    // Actualizar HUD superior
     updateHUD() {
         const levelConfig = getLevelData(this.currentLevel);
         if (this.onScoreUpdate) this.onScoreUpdate(this.score);
@@ -648,37 +641,25 @@ class IsaJumpGame {
 
         ctx.clearRect(0, 0, width, height);
 
-        // 1. Fondo dinámico según nivel
         this.drawDynamicBackground(ctx, width, height);
 
-        // 2. Estrellas de fondo
         const spaceFactor = Math.min(1, Math.max(0, (this.maxAltitude - 2000) / 4000));
         if (window.particles) {
             window.particles.drawBackgroundStars(ctx, width, height, cameraY, spaceFactor);
         }
 
-        // 3. Corrientes de viento
         this.windZones.forEach(w => this.drawWindZone(ctx, w, cameraY));
-
-        // 4. Plataformas
         this.platforms.forEach(p => this.drawPlatform(ctx, p, cameraY));
-
-        // 5. Obstáculos (Nubes de tormenta y rayos)
         this.obstacles.forEach(obs => this.drawObstacle(ctx, obs, cameraY));
-
-        // 6. Coleccionables
         this.items.forEach(item => this.drawItem(ctx, item, cameraY));
 
-        // 7. Partículas
         if (window.particles) {
             window.particles.updateAndDraw(ctx, cameraY);
         }
 
-        // 8. Personaje Isa
-        this.drawIsa(ctx, cameraY);
+        this.drawCharacter(ctx, cameraY);
     }
 
-    // Fondos por nivel
     drawDynamicBackground(ctx, width, height) {
         const levelData = getLevelData(this.currentLevel);
         let grad = ctx.createLinearGradient(0, 0, 0, height);
@@ -704,7 +685,7 @@ class IsaJumpGame {
                 grad.addColorStop(0.5, '#203a43');
                 grad.addColorStop(1, '#2c5364');
                 break;
-            default: // space
+            default:
                 grad.addColorStop(0, '#050518');
                 grad.addColorStop(0.5, '#0d0d2b');
                 grad.addColorStop(1, '#1b0933');
@@ -715,7 +696,6 @@ class IsaJumpGame {
         ctx.fillRect(0, 0, width, height);
     }
 
-    // Dibujar corriente de viento
     drawWindZone(ctx, w, cameraY) {
         const screenY = w.y - cameraY;
         if (screenY < -100 || screenY > this.logicalHeight + 100) return;
@@ -724,7 +704,6 @@ class IsaJumpGame {
         ctx.fillStyle = 'rgba(255, 255, 255, 0.08)';
         ctx.fillRect(w.x, screenY, w.width, w.height);
 
-        // Brisas ondeantes
         ctx.strokeStyle = 'rgba(255, 255, 255, 0.25)';
         ctx.lineWidth = 1.5;
         const time = performance.now() * 0.003;
@@ -738,14 +717,12 @@ class IsaJumpGame {
         ctx.restore();
     }
 
-    // Dibujar obstáculos (Tormenta y Rayos)
     drawObstacle(ctx, obs, cameraY) {
         const screenY = obs.y - cameraY;
         if (screenY < -60 || screenY > this.logicalHeight + 60) return;
 
         ctx.save();
         if (obs.type === 'storm_cloud') {
-            // Nube gris oscura de tormenta
             ctx.fillStyle = '#4a4e69';
             ctx.beginPath();
             ctx.arc(obs.x + 15, screenY + 12, 12, 0, Math.PI * 2);
@@ -753,12 +730,9 @@ class IsaJumpGame {
             ctx.arc(obs.x + 45, screenY + 12, 12, 0, Math.PI * 2);
             ctx.fill();
 
-            // Rayo eléctrico si está activo
             if (obs.zapActive) {
                 ctx.strokeStyle = '#ffee32';
                 ctx.lineWidth = 2.5;
-                ctx.shadowColor = '#ffd166';
-                ctx.shadowBlur = 10;
                 ctx.beginPath();
                 ctx.moveTo(obs.x + 30, screenY + 20);
                 ctx.lineTo(obs.x + 22, screenY + 32);
@@ -770,7 +744,6 @@ class IsaJumpGame {
         ctx.restore();
     }
 
-    // Dibujar Plataformas
     drawPlatform(ctx, p, cameraY) {
         const screenY = p.y - cameraY;
         if (screenY < -50 || screenY > this.logicalHeight + 50) return;
@@ -800,8 +773,6 @@ class IsaJumpGame {
             grad.addColorStop(1, '#ff006e');
 
             ctx.fillStyle = grad;
-            ctx.shadowColor = '#8338ec';
-            ctx.shadowBlur = 8;
             this.drawRoundedRect(ctx, p.x, screenY, p.width, p.height, 6);
             ctx.fill();
         } else if (p.type === 'fragile') {
@@ -814,15 +785,12 @@ class IsaJumpGame {
             grad.addColorStop(1, '#e8f0fe');
 
             ctx.fillStyle = grad;
-            ctx.shadowColor = 'rgba(0, 0, 0, 0.08)';
-            ctx.shadowBlur = 4;
             this.drawRoundedRect(ctx, p.x, screenY, p.width, p.height, 8);
             ctx.fill();
         }
         ctx.restore();
     }
 
-    // Dibujar Coleccionables
     drawItem(ctx, item, cameraY) {
         if (item.collected) return;
         const screenY = item.y - cameraY + Math.sin(performance.now() * 0.005 + item.bobPhase) * 4;
@@ -832,8 +800,6 @@ class IsaJumpGame {
         ctx.translate(item.x, screenY);
 
         if (item.type === 'beauty') {
-            ctx.shadowColor = '#ff758c';
-            ctx.shadowBlur = 8;
             ctx.fillStyle = '#ff758c';
             for (let i = 0; i < 5; i++) {
                 ctx.rotate((Math.PI * 2) / 5);
@@ -846,8 +812,6 @@ class IsaJumpGame {
             ctx.arc(0, 0, 4, 0, Math.PI * 2);
             ctx.fill();
         } else if (item.type === 'intelligence') {
-            ctx.shadowColor = '#00f5d4';
-            ctx.shadowBlur = 10;
             ctx.fillStyle = '#00f5d4';
             ctx.beginPath();
             ctx.arc(0, -2, 6.5, 0, Math.PI * 2);
@@ -858,8 +822,6 @@ class IsaJumpGame {
             ctx.arc(-2, -4, 2, 0, Math.PI * 2);
             ctx.fill();
         } else if (item.type === 'potential') {
-            ctx.shadowColor = '#ffd166';
-            ctx.shadowBlur = 10;
             ctx.fillStyle = '#ffd166';
             ctx.beginPath();
             ctx.moveTo(-9, 5);
@@ -872,8 +834,6 @@ class IsaJumpGame {
             ctx.closePath();
             ctx.fill();
         } else if (item.type === 'rocket') {
-            ctx.shadowColor = '#ff4d6d';
-            ctx.shadowBlur = 8;
             ctx.fillStyle = '#ff4d6d';
             ctx.beginPath();
             ctx.moveTo(0, -11);
@@ -886,17 +846,16 @@ class IsaJumpGame {
         ctx.restore();
     }
 
-    // Renderizar a Isa ("La Pulguita")
-    drawIsa(ctx, cameraY) {
+    // Renderizar el Personaje 3D Seleccionado
+    drawCharacter(ctx, cameraY) {
         const screenY = this.player.y - cameraY;
         const p = this.player;
 
         ctx.save();
         ctx.translate(p.x, screenY);
 
-        // Parpadeo de invulnerabilidad tras recibir daño
-        if (p.invulnerableTimer > 0 && Math.floor(performance.now() / 100) % 2 === 0) {
-            ctx.globalAlpha = 0.45;
+        if (p.invulnerableTimer > 0 && Math.floor(performance.now() / 90) % 2 === 0) {
+            ctx.globalAlpha = 0.4;
         }
 
         ctx.scale((p.facingRight ? 1 : -1) * p.squash, p.stretch);
@@ -906,8 +865,6 @@ class IsaJumpGame {
             ctx.save();
             ctx.strokeStyle = `rgba(112, 214, 255, ${0.7 + Math.sin(performance.now() * 0.01) * 0.3})`;
             ctx.lineWidth = 3;
-            ctx.shadowColor = '#70d6ff';
-            ctx.shadowBlur = 12;
             ctx.beginPath();
             ctx.arc(0, 0, 26, 0, Math.PI * 2);
             ctx.stroke();
@@ -922,110 +879,37 @@ class IsaJumpGame {
             ctx.save();
             ctx.fillStyle = '#ff5964';
             ctx.beginPath();
-            ctx.moveTo(0, -30);
-            ctx.lineTo(13, 8);
-            ctx.lineTo(-13, 8);
+            ctx.moveTo(0, -32);
+            ctx.lineTo(14, 10);
+            ctx.lineTo(-14, 10);
             ctx.closePath();
             ctx.fill();
             ctx.restore();
         }
 
-        // 3. Alitas
-        const wingOffset = Math.sin(p.wingFlap) * 4;
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+        // 3. Avatar 3D del personaje dentro de token circular
+        const img = this.characterImages[this.selectedCharacter];
+        const radius = 20;
+
+        ctx.save();
         ctx.beginPath();
-        ctx.ellipse(-14, -4 + wingOffset, 10, 5, -Math.PI / 4, 0, Math.PI * 2);
-        ctx.fill();
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
+        ctx.clip();
 
-        // 4. Cuerpo de la pulguita
-        const bodyGrad = ctx.createRadialGradient(-4, -4, 4, 0, 0, 18);
-        bodyGrad.addColorStop(0, '#ffccd5');
-        bodyGrad.addColorStop(0.6, '#ff8fa3');
-        bodyGrad.addColorStop(1, '#ff4d6d');
-
-        ctx.fillStyle = bodyGrad;
-        ctx.shadowColor = 'rgba(255, 77, 109, 0.3)';
-        ctx.shadowBlur = 6;
-        ctx.beginPath();
-        ctx.arc(0, 0, 17, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 5. Antenitas con corazones
-        ctx.strokeStyle = '#c9184a';
-        ctx.lineWidth = 2;
-        ctx.lineCap = 'round';
-
-        ctx.beginPath();
-        ctx.moveTo(-6, -15);
-        ctx.quadraticCurveTo(-10, -25, -12, -26);
-        ctx.stroke();
-
-        ctx.fillStyle = '#ff0054';
-        ctx.beginPath();
-        ctx.arc(-13, -27, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.moveTo(6, -15);
-        ctx.quadraticCurveTo(10, -25, 12, -26);
-        ctx.stroke();
-
-        ctx.fillStyle = '#ff0054';
-        ctx.beginPath();
-        ctx.arc(13, -27, 3, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 6. Coronita de Isa
-        ctx.fillStyle = '#ffd166';
-        ctx.beginPath();
-        ctx.moveTo(0, -17);
-        ctx.lineTo(-6, -21);
-        ctx.lineTo(-4, -15);
-        ctx.lineTo(0, -16);
-        ctx.lineTo(4, -15);
-        ctx.lineTo(6, -21);
-        ctx.closePath();
-        ctx.fill();
-
-        // 7. Mejillas sonrojadas
-        ctx.fillStyle = 'rgba(255, 25, 100, 0.35)';
-        ctx.beginPath();
-        ctx.arc(-8, 5, 4, 0, Math.PI * 2);
-        ctx.arc(8, 5, 4, 0, Math.PI * 2);
-        ctx.fill();
-
-        // 8. Ojos expresivos
-        const isBlinking = p.blinkTimer > 3.8 && p.blinkTimer <= 4.0;
-        if (isBlinking) {
-            ctx.strokeStyle = '#2b0938';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(-5, 0, 4, Math.PI * 1.1, Math.PI * 1.9);
-            ctx.stroke();
-            ctx.beginPath();
-            ctx.arc(7, 0, 4, Math.PI * 1.1, Math.PI * 1.9);
-            ctx.stroke();
+        if (img && img.complete) {
+            ctx.drawImage(img, -radius, -radius, radius * 2, radius * 2);
         } else {
-            ctx.fillStyle = '#2b0938';
-            ctx.beginPath();
-            ctx.ellipse(-5, 0, 4, 5.5, 0, 0, Math.PI * 2);
-            ctx.ellipse(7, 0, 4, 5.5, 0, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.fillStyle = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(-4, -2, 1.8, 0, Math.PI * 2);
-            ctx.arc(8, -2, 1.8, 0, Math.PI * 2);
-            ctx.arc(-6, 2, 0.9, 0, Math.PI * 2);
-            ctx.arc(6, 2, 0.9, 0, Math.PI * 2);
+            // Fallback elegante
+            ctx.fillStyle = '#ff8fa3';
             ctx.fill();
         }
+        ctx.restore();
 
-        // 9. Sonrisa
-        ctx.strokeStyle = '#590d22';
-        ctx.lineWidth = 1.8;
+        // Borde dorado brillante del personaje
+        ctx.strokeStyle = '#ffd166';
+        ctx.lineWidth = 2.5;
         ctx.beginPath();
-        ctx.arc(1, 4, 3.5, 0.2, Math.PI - 0.2);
+        ctx.arc(0, 0, radius, 0, Math.PI * 2);
         ctx.stroke();
 
         ctx.restore();

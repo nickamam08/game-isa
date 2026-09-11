@@ -1,5 +1,5 @@
 /**
- * main.js - Inicialización, control de debates, cinemática del cerdo vs oso y carta final
+ * main.js - Inicialización, selector de 4 personajes 3D, control de debates, cinemática y carta
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -24,6 +24,23 @@ document.addEventListener('DOMContentLoaded', () => {
     const gameOverModal = document.getElementById('gameOverModal');
     const cinematicModal = document.getElementById('cinematicModal');
     const victoryModal = document.getElementById('victoryModal');
+
+    // Selector de Personajes 3D
+    const characterCards = document.querySelectorAll('.character-card');
+    let selectedCharacterId = 'elmacho';
+
+    characterCards.forEach(card => {
+        card.addEventListener('click', () => {
+            characterCards.forEach(c => c.classList.remove('active'));
+            card.classList.add('active');
+            selectedCharacterId = card.dataset.char;
+            
+            if (window.sound) {
+                window.sound.init();
+                window.sound.playBeautyCollect();
+            }
+        });
+    });
 
     // Elementos de Debate / Quiz
     const quizTagBadge = document.getElementById('quizTagBadge');
@@ -50,10 +67,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const replayLetterBtn = document.getElementById('replayLetterBtn');
     const letterBody = document.getElementById('letterBody');
 
-    // Memoria de respuestas de debate
+    // Memoria de respuestas
     const userDebateAnswers = {};
 
-    // Configuración de las 4 escenas de la cinemática
+    // Escenas de la Cinemática
     const cinematicScenes = [
         {
             image: 'assets/cinematic/scene1_faceoff.jpg',
@@ -70,7 +87,7 @@ document.addEventListener('DOMContentLoaded', () => {
             action: () => {
                 if (window.sound) window.sound.playPunchImpact();
                 cinematicViewport.classList.remove('screen-shake');
-                void cinematicViewport.offsetWidth; // Forzar reflow para reiniciar animación
+                void cinematicViewport.offsetWidth;
                 cinematicViewport.classList.add('screen-shake');
             }
         },
@@ -122,14 +139,12 @@ document.addEventListener('DOMContentLoaded', () => {
         showToast(message, type);
     };
 
-    // Callback: Nivel completado -> Mostrar Dilema Abierto
     game.onLevelComplete = (levelData) => {
         quizTagBadge.textContent = levelData.quiz.tag || "💬 Momento de Debate";
         quizQuestion.textContent = levelData.quiz.question;
         quizTextAnswer.value = userDebateAnswers[levelData.level] || '';
         quizTextAnswer.placeholder = levelData.quiz.placeholder || "Escribe tu respuesta aquí...";
 
-        // Crear píldoras de inspiración rápida
         quizQuickIdeas.innerHTML = '';
         if (levelData.quiz.quickIdeas) {
             levelData.quiz.quickIdeas.forEach(idea => {
@@ -147,12 +162,10 @@ document.addEventListener('DOMContentLoaded', () => {
         quizModal.classList.add('active');
     };
 
-    // Callback: Game Over
     game.onGameOver = () => {
         gameOverModal.classList.add('active');
     };
 
-    // Callback: Victoria Total -> Activar Cinemática del Cerdo vs Oso
     game.onVictoryReached = () => {
         hud.style.display = 'none';
         startCinematic();
@@ -177,15 +190,12 @@ document.addEventListener('DOMContentLoaded', () => {
         cinematicRoundTag.textContent = scene.tag;
         cinematicText.textContent = scene.text;
 
-        // Actualizar indicadores de puntos
         cinemaDots.forEach((dot, idx) => {
             dot.classList.toggle('active', idx === index);
         });
 
-        // Ejecutar acción sonora/visual
         if (scene.action) scene.action();
 
-        // Control de botones
         if (index === cinematicScenes.length - 1) {
             cinematicNextBtn.style.display = 'none';
             cinematicFinishBtn.style.display = 'block';
@@ -261,7 +271,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (charIndex < currentText.length) {
                 currentP.textContent += currentText.charAt(charIndex);
                 charIndex++;
-                typewriterTimeout = setTimeout(typeNextChar, 20);
+                typewriterTimeout = setTimeout(typeNextChar, 18);
             } else {
                 pIndex++;
                 charIndex = 0;
@@ -277,7 +287,7 @@ document.addEventListener('DOMContentLoaded', () => {
     startBtn.addEventListener('click', () => {
         startScreen.classList.remove('active');
         hud.style.display = 'flex';
-        game.start(1, true);
+        game.start(1, true, selectedCharacterId);
     });
 
     instructionsBtn.addEventListener('click', () => {
@@ -290,13 +300,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     retryLevelBtn.addEventListener('click', () => {
         gameOverModal.classList.remove('active');
-        game.start(game.currentLevel, false);
+        game.start(game.currentLevel, false, selectedCharacterId);
     });
 
     playAgainBtn.addEventListener('click', () => {
         victoryModal.classList.remove('active');
         hud.style.display = 'flex';
-        game.start(1, true);
+        game.start(1, true, selectedCharacterId);
     });
 
     replayLetterBtn.addEventListener('click', () => {

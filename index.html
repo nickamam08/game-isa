@@ -47,18 +47,32 @@
         <div id="toastContainer"></div>
 
         <!-- =================================================================
-             PANTALLA 1: Menú de Inicio
+             PANTALLA 1: Menú de Inicio con Selector de 4 Personajes 3D
              ================================================================= -->
         <div id="startScreen" class="overlay-screen active">
             <div class="modal-card">
                 <div class="title-badge">✨ Desafío de 5 Niveles ✨</div>
                 <h1 class="game-title">El Gran Salto de la Pulguita</h1>
-                <p class="game-subtitle">Supera los 5 niveles, responde dilemas curiosos para debatir y descubre la gran cinemática final 🥊</p>
+                <p class="game-subtitle">Supera los 5 niveles, responde dilemas curiosos y descubre la gran cinemática final 🥊</p>
 
-                <div class="hero-avatar-wrapper">
-                    <div class="hero-avatar-glow"></div>
-                    <div class="hero-avatar-box">
-                        <span>🌸</span>
+                <!-- Selector de 4 Personajes 3D -->
+                <span class="character-select-label">🎭 Elige tu personaje 3D:</span>
+                <div class="character-grid" id="characterGrid">
+                    <div class="character-card active" data-char="elmacho">
+                        <img src="assets/characters/elmacho.jpg" class="character-avatar-img" alt="El Macho">
+                        <span class="character-name">El macho</span>
+                    </div>
+                    <div class="character-card" data-char="chavito">
+                        <img src="assets/characters/chavito.jpg" class="character-avatar-img" alt="Chavito">
+                        <span class="character-name">Chavito</span>
+                    </div>
+                    <div class="character-card" data-char="niko">
+                        <img src="assets/characters/niko.jpg" class="character-avatar-img" alt="Niko">
+                        <span class="character-name">Niko</span>
+                    </div>
+                    <div class="character-card" data-char="valolo">
+                        <img src="assets/characters/valolo.jpg" class="character-avatar-img" alt="Valolo">
+                        <span class="character-name">Valolo</span>
                     </div>
                 </div>
 
@@ -187,16 +201,16 @@
         <div id="victoryModal" class="overlay-screen">
             <div class="modal-card victory-card">
                 <div class="victory-badge">👑✨</div>
-                <h2 class="victory-title">Y ahora sí... para ti 💖</h2>
-                <p style="font-size: 12.5px; color: #7209b7; font-weight: 700; margin-bottom: 6px;">
+                <h2 class="victory-title">Para ti, con admiración 💖</h2>
+                <p style="font-size: 12px; color: #7209b7; font-weight: 700; margin-bottom: 6px;">
                     El mensaje que guardé para el final ✨
                 </p>
 
                 <!-- Carta para Isa -->
                 <div class="letter-container">
-                    <span class="letter-recipient">Para la pulguita más increíble y capaz del universo (Isa) 💖</span>
+                    <span class="letter-recipient">Para una mujer verdaderamente admirable (Isa) ✨</span>
                     <div class="letter-body" id="letterBody"></div>
-                    <span class="letter-signature">Con todo mi cariño y admiración sincera ✨</span>
+                    <span class="letter-signature">Con mucho respeto, cariño y admiración sincera ✨</span>
                 </div>
 
                 <button id="playAgainBtn" class="btn-primary">
