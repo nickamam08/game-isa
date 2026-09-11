@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#ff4d6d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <title>El Gran Salto de la Pulguita ✨ - Juego para Isa</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+    <div id="gameContainer">
+        <!-- Canvas Principal del Juego -->
+        <canvas id="gameCanvas"></canvas>
+
+        <!-- HUD Superior (Vidas, Nivel, Altitud, Puntaje) -->
+        <div id="hud" style="display: none;">
+            <div class="hud-top-row">
+                <div class="hud-pill">
+                    <span id="hudLives" class="hud-lives">❤️❤️❤️</span>
+                </div>
+                <div id="hudLevelTag" class="hud-level-tag">
+                    Nivel 1
+                </div>
+                <div class="hud-pill">
+                    <span>⭐</span>
+                    <span id="hudScore">0</span>
+                </div>
+                <button id="soundToggleBtn" class="hud-btn" title="Silenciar/Activar audio">
+                    🔊
+                </button>
+            </div>
+
+            <div class="hud-progress-wrapper">
+                <div class="hud-progress-bar">
+                    <div id="hudProgressFill" class="hud-progress-fill"></div>
+                </div>
+                <div class="hud-altitude-text">
+                    <span id="hudAltitude">0</span>m / <span id="hudTargetAltitude">1,200</span>m 🚀
+                </div>
+            </div>
+        </div>
+
+        <!-- Contenedor de Cumplidos Flotantes (Toasts) -->
+        <div id="toastContainer"></div>
+
+        <!-- =================================================================
+             PANTALLA 1: Menú de Inicio
+             ================================================================= -->
+        <div id="startScreen" class="overlay-screen active">
+            <div class="modal-card">
+                <div class="title-badge">✨ Desafío de 5 Niveles ✨</div>
+                <h1 class="game-title">El Gran Salto de la Pulguita</h1>
+                <p class="game-subtitle">Supera los 5 niveles, responde dilemas curiosos para debatir y descubre la gran cinemática final 🥊</p>
+
+                <div class="hero-avatar-wrapper">
+                    <div class="hero-avatar-glow"></div>
+                    <div class="hero-avatar-box">
+                        <span>🌸</span>
+                    </div>
+                </div>
+
+                <button id="startBtn" class="btn-primary">
+                    🚀 ¡Comenzar el Viaje!
+                </button>
+                <button id="instructionsBtn" class="btn-secondary">
+                    📖 ¿Cómo Jugar y Retos?
+                </button>
+            </div>
+        </div>
+
+        <!-- =================================================================
+             PANTALLA 2: Modal de Instrucciones
+             ================================================================= -->
+        <div id="instructionsModal" class="overlay-screen">
+            <div class="modal-card">
+                <h2 class="game-title" style="font-size: 20px;">¿Cómo Jugar? 🎮</h2>
+                <p class="game-subtitle" style="margin-bottom: 10px;">
+                    Guía el salto con toques suaves y supera los 5 niveles cósmicos.
+                </p>
+
+                <div class="items-guide-grid">
+                    <div class="guide-item-card">
+                        <span style="font-size: 18px;">📱</span>
+                        <span>Toca o desliza en los lados de la pantalla</span>
+                    </div>
+                    <div class="guide-item-card">
+                        <span style="font-size: 18px;">❤️</span>
+                        <span>Tienes 3 vidas por nivel. ¡Cuídalas!</span>
+                    </div>
+                    <div class="guide-item-card">
+                        <span style="font-size: 18px;">⚡</span>
+                        <span>Esquiva tormentas y rayos en niveles altos</span>
+                    </div>
+                    <div class="guide-item-card">
+                        <span style="font-size: 18px;">💬</span>
+                        <span>Al final de cada nivel hay un dilema para debatir</span>
+                    </div>
+                </div>
+
+                <button id="closeInstructionsBtn" class="btn-primary">
+                    ¡Entendido, vamos! 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- =================================================================
+             PANTALLA 3: Modal de Trivia / Dilema Abierto para Debatir
+             ================================================================= -->
+        <div id="quizModal" class="overlay-screen">
+            <div class="modal-card">
+                <div class="quiz-tag-badge" id="quizTagBadge">💬 Momento de Debate</div>
+                <h3 class="quiz-question-title" id="quizQuestion">
+                    ¿Pregunta intrigante para debatir?
+                </h3>
+
+                <!-- Píldoras de inspiración rápida -->
+                <div class="quiz-quick-ideas" id="quizQuickIdeas"></div>
+
+                <!-- Campo de Respuesta Libre -->
+                <textarea id="quizTextAnswer" class="quiz-textarea" rows="3" placeholder="Escribe aquí tu respuesta para comentarla..."></textarea>
+
+                <button id="saveAndNextBtn" class="btn-primary">
+                    💬 Guardar y Siguiente Nivel 🚀
+                </button>
+            </div>
+        </div>
+
+        <!-- =================================================================
+             PANTALLA 4: Modal de Reintento de Nivel (Game Over)
+             ================================================================= -->
+        <div id="gameOverModal" class="overlay-screen">
+            <div class="modal-card">
+                <div style="font-size: 40px; margin-bottom: 8px;">💪✨</div>
+                <h2 class="game-title" style="font-size: 21px;">¡Casi lo logras, pulga!</h2>
+                <p class="game-subtitle" style="margin-bottom: 18px;">
+                    Los grandes desafíos forjan a las mejores campeonas. ¡Ajusta el salto y vuelve a intentarlo! 💖
+                </p>
+                <button id="retryLevelBtn" class="btn-primary">
+                    🔄 Reintentar Nivel
+                </button>
+            </div>
+        </div>
+
+        <!-- =================================================================
+             PANTALLA 5: 🎬 Cinemática Animada: "El Cerdo vs El Oso"
+             ================================================================= -->
+        <div id="cinematicModal" class="cinematic-screen">
+            <div class="cinema-bar">
+                <span>🥊 LA GRAN BATALLA FINAL: EL CERDO VS EL OSO 🐻</span>
+            </div>
+
+            <div id="cinematicViewport" class="cinematic-viewport">
+                <img id="cinematicImage" class="cinematic-img" src="assets/cinematic/scene1_faceoff.jpg" alt="Cinemática de Combate">
+                
+                <!-- Subtítulo de Acción y Control -->
+                <div class="cinematic-subtitle-card">
+                    <div id="cinematicRoundTag" class="cinematic-round-tag">ROUND 1: EL CARA A CARA</div>
+                    <p id="cinematicText" class="cinematic-text">El temible Oso Gigante desafía al valiente Cerdo Boxeador en la arena estelar.</p>
+                    
+                    <div class="cinematic-dots">
+                        <span class="cinema-dot active" data-step="0"></span>
+                        <span class="cinema-dot" data-step="1"></span>
+                        <span class="cinema-dot" data-step="2"></span>
+                        <span class="cinema-dot" data-step="3"></span>
+                    </div>
+
+                    <button id="cinematicNextBtn" class="btn-primary" style="margin-bottom: 0;">
+                        ¡Siguiente Acción! 💥
+                    </button>
+                    <button id="cinematicFinishBtn" class="btn-primary" style="display: none; margin-bottom: 0; background: linear-gradient(135deg, #ffd166, #ff0054);">
+                        ✨ Ver el Mensaje Final para Isa
+                    </button>
+                </div>
+            </div>
+
+            <div class="cinema-bar">
+                <span>🔥 DEDICADO A LA GRAN CAMPEONA 🔥</span>
+            </div>
+        </div>
+
+        <!-- =================================================================
+             PANTALLA 6: Victoria Final & Carta Sorpresa para Isa
+             ================================================================= -->
+        <div id="victoryModal" class="overlay-screen">
+            <div class="modal-card victory-card">
+                <div class="victory-badge">👑✨</div>
+                <h2 class="victory-title">Y ahora sí... para ti 💖</h2>
+                <p style="font-size: 12.5px; color: #7209b7; font-weight: 700; margin-bottom: 6px;">
+                    El mensaje que guardé para el final ✨
+                </p>
+
+                <!-- Carta para Isa -->
+                <div class="letter-container">
+                    <span class="letter-recipient">Para la pulguita más increíble y capaz del universo (Isa) 💖</span>
+                    <div class="letter-body" id="letterBody"></div>
+                    <span class="letter-signature">Con todo mi cariño y admiración sincera ✨</span>
+                </div>
+
+                <button id="playAgainBtn" class="btn-primary">
+                    🔄 Jugar Desde el Inicio
+                </button>
+                <button id="replayLetterBtn" class="btn-secondary" style="margin-top: 6px;">
+                    💌 Releer Carta
+                </button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Scripts modulares -->
+    <script src="js/quotes.js"></script>
+    <script src="js/quiz.js"></script>
+    <script src="js/audio.js"></script>
+    <script src="js/particles.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>
